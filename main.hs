@@ -5,81 +5,81 @@ import System.IO (BufferMode(NoBuffering), hSetBuffering, stdin)
 import Data.List (transpose)
 import System.Random (randomRIO)
 
-data Move = Up | Down | Left | Right deriving (Eq, Show)
-type Grid = [[Int]]
+data Movimento = Cima | Baixo | Esquerda | Direita deriving (Eq, Show)
+type Tabuleiro = [[Int]]
 
 main :: IO ()
 main = do
     hSetBuffering stdin NoBuffering
-    putStrLn "Bem vind  o ao 2048! Use as teclas WASD para jogar"
-    start >>= gameLoop
-start :: IO Grid
-start = do
-    let initialGrid = replicate 4 [0, 0, 0, 0]  
-    gridWithOneTile <- addRandomTile initialGrid
-    addRandomTile gridWithOneTile
+    putStrLn "Bem vindo ao 2048! Use as teclas WASD para jogar"
+    iniciar >>= loopDeJogo
 
-addRandomTile :: Grid -> IO Grid -- Serve para adicionar um bloco aleatório no grid
+iniciar :: IO Tabuleiro
+iniciar = do
+    let gridInicial = replicate 4 [0, 0, 0, 0]  
+    gridComUmBloco <- adicionarBlocoAleatorio gridInicial
+    adicionarBlocoAleatorio gridComUmBloco
 
-addRandomTile grid = do
-    let empty = [(x, y) | x <- [0..3], y <- [0..3], grid !! x !! y == 0]
-    if null empty then
-        return grid
+adicionarBlocoAleatorio :: Tabuleiro -> IO Tabuleiro
+adicionarBlocoAleatorio tabuleiro = do
+    let vazios = [(x, y) | x <- [0..3], y <- [0..3], tabuleiro !! x !! y == 0]
+    if null vazios then
+        return tabuleiro
     else do
-        index <- randomRIO (0, length empty - 1)
+        indice <- randomRIO (0, length vazios - 1)
         num <- randomRIO (1, 10 :: Int)  
-        let value = if num == 1 then 4 else 2  
-        let (x, y) = empty !! index
-        return $ updateGrid grid (x, y) value
+        let valor = if num == 1 then 4 else 2  
+        let (x, y) = vazios !! indice
+        return $ atualizarTabuleiro tabuleiro (x, y) valor
 
-updateGrid :: Grid -> (Int, Int) -> Int -> Grid -- Atualização do grid
-updateGrid grid (x, y) val =
-    take x grid ++
-    [take y (grid !! x) ++ [val] ++ drop (y + 1) (grid !! x)] ++
-    drop (x + 1) grid
+atualizarTabuleiro :: Tabuleiro -> (Int, Int) -> Int -> Tabuleiro
+atualizarTabuleiro tabuleiro (x, y) valor =
+    take x tabuleiro ++
+    [take y (tabuleiro !! x) ++ [valor] ++ drop (y + 1) (tabuleiro !! x)] ++
+    drop (x + 1) tabuleiro
 
-moveTiles :: Move -> Grid -> Grid
-moveTiles Left = map merge
-moveTiles Right = map (reverse . merge . reverse)
-moveTiles Up = transpose . moveTiles Left . transpose
-moveTiles Down = transpose . moveTiles Right . transpose
+moverBlocos :: Movimento -> Tabuleiro -> Tabuleiro
+moverBlocos Esquerda = map juntar
+moverBlocos Direita = map (reverse . juntar . reverse)
+moverBlocos Cima = transpose . moverBlocos Esquerda . transpose
+moverBlocos Baixo = transpose . moverBlocos Direita . transpose
 
-merge :: [Int] -> [Int]
-merge = fixLength . foldr combine [] . filter (/= 0)
+juntar :: [Int] -> [Int]
+juntar = corrigirTamanho . foldr combinar [] . filter (/= 0)
   where
-    combine x [] = [x]
-    combine x (y:ys) | x == y = x * 2 : ys
-                     | otherwise = x : y : ys
-    fixLength xs = xs ++ replicate (4 - length xs) 0
+    combinar x [] = [x]
+    combinar x (y:ys) | x == y = x * 2 : ys
+                      | otherwise = x : y : ys
+    corrigirTamanho xs = xs ++ replicate (4 - length xs) 0
 
-gameLoop :: Grid -> IO () -- é onde ocorre a lógica de loop do nosso jogo
-gameLoop grid
-    | isGameOver grid = do
-        printGrid grid
+loopDeJogo :: Tabuleiro -> IO ()
+loopDeJogo tabuleiro
+    | jogoTerminado tabuleiro = do
+        imprimirTabuleiro tabuleiro
         putStrLn "Fim de jogo!"
     | otherwise = do
-        printGrid grid
-        move <- captureMove
-        let newGrid = moveTiles move grid
-        if newGrid /= grid
-        then addRandomTile newGrid >>= gameLoop
-        else gameLoop grid
+        imprimirTabuleiro tabuleiro
+        movimento <- capturarMovimento
+        let novoTabuleiro = moverBlocos movimento tabuleiro
+        if novoTabuleiro /= tabuleiro
+        then adicionarBlocoAleatorio novoTabuleiro >>= loopDeJogo
+        else loopDeJogo tabuleiro
 
-isGameOver :: Grid -> Bool
-isGameOver grid = not (any (== 2048) (concat grid) || anyMovesLeft grid)
+jogoTerminado :: Tabuleiro -> Bool
+jogoTerminado tabuleiro = not (any (== 2048) (concat tabuleiro) || movimentosRestantes tabuleiro)
 
-anyMovesLeft :: Grid -> Bool
-anyMovesLeft grid = any (\m -> moveTiles m grid /= grid) [Up, Down, Left, Right]
+movimentosRestantes :: Tabuleiro -> Bool
+movimentosRestantes tabuleiro = any (\m -> moverBlocos m tabuleiro /= tabuleiro) [Cima, Baixo, Esquerda, Direita]
 
-printGrid :: Grid -> IO ()
-printGrid = mapM_ (putStrLn . unwords . map show)
+imprimirTabuleiro :: Tabuleiro -> IO ()
+imprimirTabuleiro = mapM_ (putStrLn . unwords . map show)
 
-captureMove :: IO Move
-captureMove = do
-    char <- getChar
-    putStrLn ""  -- Usei para fazer ele pular uma linha entre a tecla informada pelo usuário e a matriz
-    case lookup char [('w', Up), ('a', Left), ('s', Down), ('d', Right)] of
-        Just move -> return move
+capturarMovimento :: IO Movimento
+capturarMovimento = do
+    caractere <- getChar
+    putStrLn ""  -- Usado para pular uma linha entre a tecla informada pelo usuário e o tabuleiro
+    case lookup caractere [('w', Cima), ('a', Esquerda), ('s', Baixo), ('d', Direita)] of
+        Just mov -> return mov
         Nothing -> do
-            putStrLn "Input in W, A, S, or D."
-            captureMove
+            putStrLn "Digite W, A, S ou D."
+            capturarMovimento
