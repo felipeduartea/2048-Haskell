@@ -53,20 +53,22 @@ juntar = corrigirTamanho . foldr combinar [] . filter (/= 0)
     corrigirTamanho xs = xs ++ replicate (4 - length xs) 0
 
 loopDeJogo :: Tabuleiro -> IO ()
-loopDeJogo tabuleiro
-    | jogoTerminado tabuleiro = do
-        imprimirTabuleiro tabuleiro
-        putStrLn "Fim de jogo!"
-    | otherwise = do
-        imprimirTabuleiro tabuleiro
-        movimento <- capturarMovimento
-        let novoTabuleiro = moverBlocos movimento tabuleiro
-        if novoTabuleiro /= tabuleiro
-        then adicionarBlocoAleatorio novoTabuleiro >>= loopDeJogo
-        else loopDeJogo tabuleiro
+loopDeJogo tabuleiro = do
+    imprimirTabuleiro tabuleiro
+    case jogoTerminado tabuleiro of
+        Just mensagem -> putStrLn mensagem
+        Nothing -> do
+            movimento <- capturarMovimento
+            let novoTabuleiro = moverBlocos movimento tabuleiro
+            if novoTabuleiro /= tabuleiro
+            then adicionarBlocoAleatorio novoTabuleiro >>= loopDeJogo
+            else loopDeJogo tabuleiro
 
-jogoTerminado :: Tabuleiro -> Bool
-jogoTerminado tabuleiro = not (any (== 2048) (concat tabuleiro) || movimentosRestantes tabuleiro)
+jogoTerminado :: Tabuleiro -> Maybe String
+jogoTerminado tabuleiro
+    | any (== 2048) (concat tabuleiro) = Just "Parabéns! Você ganhou!"
+    | not (movimentosRestantes tabuleiro) = Just "Fim de jogo! Não existem mais movimentos possíveis."
+    | otherwise = Nothing
 
 movimentosRestantes :: Tabuleiro -> Bool
 movimentosRestantes tabuleiro = any (\m -> moverBlocos m tabuleiro /= tabuleiro) [Cima, Baixo, Esquerda, Direita]
@@ -81,5 +83,5 @@ capturarMovimento = do
     case lookup caractere [('w', Cima), ('a', Esquerda), ('s', Baixo), ('d', Direita)] of
         Just mov -> return mov
         Nothing -> do
-            putStrLn "Digite W, A, S ou D."
+            putStrLn "Digite W, A, S ou D para movimentar seus valores pelo tabuleiro"
             capturarMovimento
