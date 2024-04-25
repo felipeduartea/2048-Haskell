@@ -50,7 +50,7 @@ juntar = corrigirTamanho . foldr combinar [] . filter (/= 0)
     combinar x [] = [x]
     combinar x (y:ys) | x == y = x * 2 : ys
                       | otherwise = x : y : ys
-    corrigirTamanho xs = xs ++ replicate (4 - length xs) 0
+    corrigirTamanho xs = xs ++ replicate (4 - length xs) 0  
 
 loopDeJogo :: Tabuleiro -> IO ()
 loopDeJogo tabuleiro = do
